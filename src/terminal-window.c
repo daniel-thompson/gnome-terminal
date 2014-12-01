@@ -694,10 +694,24 @@ action_switch_tab_cb (GSimpleAction *action,
 
   value = g_variant_get_int32 (parameter);
 
-  if (value > 0)
-    terminal_mdi_container_set_active_screen_num (priv->mdi_container, value - 1);
-  else
-    terminal_mdi_container_change_screen (priv->mdi_container, value == -2 ? -1 : 1);
+  if (terminal_mdi_container_get_n_screens (priv->mdi_container) > 1) {
+    if (value > 0)
+      terminal_mdi_container_set_active_screen_num (priv->mdi_container, value - 1);
+    else
+      terminal_mdi_container_change_screen (priv->mdi_container, value == -2 ? -1 : 1);
+  } else {
+    /* there are no open tabs; send tmux key bindings to switch window instead */
+    char tmux_cmd[] = "\0020";
+
+    if (value > 0)
+      tmux_cmd[1] = '0' + value-1;
+    else
+      tmux_cmd[1] = (value == -2 ? 'p' : 'n');
+
+    if (value <= 9)
+      vte_terminal_feed_child (VTE_TERMINAL(priv->active_screen), tmux_cmd,
+                               sizeof(tmux_cmd)-1);
+  }
 }
 
 static void
